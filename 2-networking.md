@@ -195,6 +195,61 @@ decides where it goes next.
 
 ---
 
+## DNS — Route 53
+
+The **public hosted zone lives in the Shared Services account**, managed via the
+AFT Terraform layer. DNS is a centralised platform service — like the TGW, ECR,
+and CI/CD — so it does not live inside a workload account. A single zone in
+Shared Services also lets a **failover record set span both regions** (the Prod
+ALB in `eu-central-1` and the DR ALB in `eu-west-1`), which a per-account zone
+could not.
+
+```mermaid
+graph TD
+    subgraph SS["Shared Services Account"]
+        Z["Route 53 public zone<br/>example.com"]
+        HC["Health check"]
+    end
+    subgraph PRODACC["Prod Account"]
+        ALBP["ALB (internet-facing)<br/>eu-central-1"]
+        EDP["external-dns<br/>(assumes SS role)"]
+    end
+    subgraph DRACC["DR Account / region"]
+        ALBD["ALB (internet-facing)<br/>eu-west-1"]
+    end
+
+    EDP -->|"ChangeResourceRecordSets<br/>via cross-account role"| Z
+    Z -->|"PRIMARY alias"| ALBP
+    Z -->|"SECONDARY alias"| ALBD
+    HC -->|"monitors public FQDN"| ALBP
+```
+
+### Cross-account records — external-dns
+
+Workload accounts do **not** own the zone. Each EKS cluster runs **external-dns**,
+which **assumes a cross-account IAM role in Shared Services** scoped to
+`route53:ChangeResourceRecordSets` on that zone. This mirrors the OIDC
+cross-account pattern used for DR failover (see `8-dr.md`): no long-lived
+credentials, records managed declaratively from the cluster.
+
+- Alias records to an ALB in another account are created by specifying the ALB
+  **DNS name + canonical (ELB) hosted zone id** explicitly — cross-account alias
+  to an ELB is fully supported via the API/Terraform (the console dropdown only
+  lists same-account resources).
+- **Health checks are endpoint-based, not account-scoped** — a health check in
+  the Shared Services zone reaches the internet-facing ALBs over their public
+  FQDN, so no cross-account permission is needed for the check itself. Restrict
+  the ALB security group to the published Route 53 health-checker IP ranges
+  rather than `0.0.0.0/0` if tightening is required.
+
+### Public vs private zones
+
+- **Public zone** — centralised in Shared Services, as above.
+- **Private zones** — per-VPC; associate with other accounts' VPCs via
+  cross-account VPC association only where internal name resolution is needed.
+
+---
+
 ## Why sections
 
 ## Why TGW over the alternatives
@@ -216,3 +271,12 @@ to each VPC for three reasons:
   access for all accounts if it failed. Per-VPC NAT isolates failures.
 - **Scale** — a centralised egress VPC becomes a bottleneck at 10x traffic growth.
   Per-VPC NAT scales independently with each account.
+
+## Why the public zone lives in Shared Services
+
+- **Centralised platform service** — DNS belongs with the other org-wide platform
+  resources (TGW, ECR, CI/CD), not inside a single workload account.
+- **Region-spanning failover** — one zone can hold `PRIMARY`/`SECONDARY` records
+  pointing at ALBs in different accounts and regions; a per-account zone cannot.
+- **Least privilege** — workload clusters get only a scoped cross-account role to
+  write their own records, never ownership of the zone.

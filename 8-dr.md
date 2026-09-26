@@ -130,6 +130,11 @@ primary ALB in eu-central-1 is the `PRIMARY` record; the DR ALB in eu-west-1
 is the `SECONDARY` record. A Route 53 health check monitors the primary ALB
 endpoint every 10 seconds.
 
+The hosted zone and the health check live in the **Shared Services account**
+(see `2-networking.md` — DNS ownership); the health check reaches the
+internet-facing ALBs in the Prod and DR accounts over their public FQDN, so no
+cross-account permission is needed for the check itself.
+
 ```mermaid
 graph TD
     CLIENT["Client"]

@@ -40,7 +40,7 @@ graph TD
 | (root) | Management | Billing + org management only, no workloads | None |
 | Security *(CT default)* | Audit | CloudTrail org trail, Config, Security Hub master | None |
 | Security *(CT default)* | Log Archive | Centralized immutable logs (S3 Object Lock, 7yr) | None |
-| Infrastructure | Shared Services | Transit Gateway, ECR, CI/CD, observability | 10.0.0.0/16 |
+| Infrastructure | Shared Services | Transit Gateway, ECR, CI/CD, observability, Route 53 public zone | 10.0.0.0/16 |
 | Non-Production | Dev | Active development, experimental, liberal permissions | 10.2.0.0/16 |
 | Non-Production | Staging | Pre-production mirror, stricter, closer to prod | 10.3.0.0/16 |
 | Production | Prod | Production workloads | 10.1.0.0/16 |
