@@ -245,6 +245,31 @@ rule is configured, triggers an on-call alert.
 
 ---
 
+## AWS WAF — web application firewall *(optional)*
+
+AWS WAF can be attached to any internet-facing **ALB** in the estate to
+filter malicious HTTP/S traffic before it reaches the application. It is not
+required by default but is recommended for any ALB that is exposed to the
+public internet.
+
+When enabled, WAF rules are applied per ALB:
+
+| Rule group | What it blocks |
+|---|---|
+| AWS Managed Rules — Core rule set | OWASP Top 10 (SQL injection, XSS, path traversal, etc.) |
+| AWS Managed Rules — Known bad inputs | Exploits targeting common CVEs and log4j-style payloads |
+| AWS Managed Rules — IP reputation | Requests from known malicious IPs and Tor exit nodes |
+| Rate-based rule | Limits requests per IP per 5-minute window — protects against brute force and DDoS |
+
+**How to set it up:** a WAF Web ACL is created and associated with the ALB
+as part of the AFT account customization layer — the same Terraform run that
+provisions the ALB. This ensures every internet-facing ALB in the estate
+is protected consistently without manual steps. **AWS Firewall Manager** can
+be used from the Management account to enforce a WAF policy organisation-wide,
+automatically covering new ALBs as they are created.
+
+---
+
 ## Why sections
 
 ### Why Secrets Manager over SSM Parameter Store
